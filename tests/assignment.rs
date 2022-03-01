@@ -63,6 +63,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk -= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 - 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk -= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 - 1), dk);
     }
 
     impl_op!(*= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas *= b.bananas; });
@@ -71,6 +75,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk *= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 * 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk *= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 * 1), dk);
     }
 
     impl_op!(/= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas /= b.bananas; });
@@ -79,6 +87,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk /= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 / 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk /= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 / 1), dk);
     }
 
     impl_op!(%= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas %= b.bananas; });
@@ -87,6 +99,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk %= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 % 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk %= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 % 1), dk);
     }
 
     impl_op!(&= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas &= b.bananas; });
@@ -95,6 +111,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk &= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 & 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk &= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 & 1), dk);
     }
 
     impl_op!(|= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas |= b.bananas; });
@@ -103,6 +123,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk |= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 | 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk |= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 | 1), dk);
     }
 
     impl_op!(^= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas ^= b.bananas; });
@@ -111,6 +135,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk ^= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 ^ 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk ^= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 ^ 1), dk);
     }
 
     impl_op!(<<= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas <<= b.bananas; });
@@ -119,6 +147,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk <<= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 << 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk <<= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 << 1), dk);
     }
 
     impl_op!(>>= |a: &mut kong::Donkey, b: kong::Diddy| { a.bananas >>= b.bananas; });
@@ -127,6 +159,10 @@ mod impl_op_operators {
         let mut dk = kong::Donkey::new(3);
         dk >>= kong::Diddy::new(1);
         assert_eq!(kong::Donkey::new(3 >> 1), dk);
+
+        let mut dk = &mut kong::Donkey::new(3);
+        dk >>= kong::Diddy::new(1);
+        assert_eq!(&mut kong::Donkey::new(3 >> 1), dk);
     }
 }
 

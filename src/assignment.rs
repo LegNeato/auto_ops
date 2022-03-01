@@ -23,9 +23,23 @@ macro_rules! _impl_assignment_op_internal {
                 $body
             }
         }
+
+        impl ::std::ops::$ops_trait<&$rhs> for &mut $lhs {
+            fn $ops_fn(&mut self, $rhs_i: &$rhs) {
+                let mut $lhs_i = self;
+                $body
+            }
+        }
     };
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $lhs_i:ident, $rhs_i:ident, $body:block) => {
         impl ::std::ops::$ops_trait<$rhs> for $lhs {
+            fn $ops_fn(&mut self, $rhs_i: $rhs) {
+                let mut $lhs_i = self;
+                $body
+            }
+        }
+
+        impl ::std::ops::$ops_trait<$rhs> for &mut $lhs {
             fn $ops_fn(&mut self, $rhs_i: $rhs) {
                 let mut $lhs_i = self;
                 $body
