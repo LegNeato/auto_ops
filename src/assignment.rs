@@ -20,6 +20,7 @@ macro_rules! _impl_assignment_op_internal {
         impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for $lhs {
             $(#[$attrs])*
             fn $ops_fn(&mut self, $rhs_i: &$rhs) {
+                #[allow(unused_mut)]
                 let mut $lhs_i = self;
                 $body
             }
@@ -27,6 +28,7 @@ macro_rules! _impl_assignment_op_internal {
 
         impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for &mut $lhs {
             fn $ops_fn(&mut self, $rhs_i: &$rhs) {
+                #[allow(unused_mut)]
                 let mut $lhs_i = self;
                 $body
             }
@@ -36,6 +38,7 @@ macro_rules! _impl_assignment_op_internal {
         impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for $lhs {
             $(#[$attrs])*
             fn $ops_fn(&mut self, $rhs_i: $rhs) {
+                #[allow(unused_mut)]
                 let mut $lhs_i = self;
                 $body
             }
@@ -43,6 +46,7 @@ macro_rules! _impl_assignment_op_internal {
 
         impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for &mut $lhs {
             fn $ops_fn(&mut self, $rhs_i: $rhs) {
+                #[allow(unused_mut)]
                 let mut $lhs_i = self;
                 $body
             }
