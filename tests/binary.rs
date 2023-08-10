@@ -512,6 +512,196 @@ mod generics {
     }
 }
 
+mod generic_params {
+    use super::*;
+
+    // Using i8/u8 to avoid conflicting with above impls
+    trait Marker {
+        fn from_i32(v: i32) -> Self;
+    }
+    impl Marker for u8 {
+        fn from_i32(v: i32) -> Self {
+            v as u8
+        }
+    }
+    impl Marker for i8 {
+        fn from_i32(v: i32) -> Self {
+            v as i8
+        }
+    }
+
+    impl_op!(
+        +
+        <T: ::std::ops::Add<T> + Marker>
+        |a: kong::Barrel<T>, b: kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::Add<T>>::Output> {
+            kong::Barrel::new(a.bananas + b.bananas)
+        }
+    );
+    #[test]
+    fn impl_op() {
+        assert_eq!(
+            kong::Barrel::new(3u8),
+            kong::Barrel::new(1u8) + kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new(-3i8),
+            kong::Barrel::new(-1i8) + kong::Barrel::new(-2i8)
+        );
+    }
+
+    impl_op_commutative!(
+        *
+        <T: ::std::ops::Mul<T> + Marker>
+        |a: kong::Barrel<i32>, b: kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::Mul<T>>::Output> {
+            kong::Barrel::new(T::from_i32(a.bananas) * b.bananas)
+        }
+    );
+    #[test]
+    fn impl_op_commutative() {
+        assert_eq!(
+            kong::Barrel::new(6u8),
+            kong::Barrel::new(3i32) * kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new(6u8),
+            kong::Barrel::new(3u8) * kong::Barrel::new(2i32)
+        );
+        assert_eq!(
+            kong::Barrel::new(-6i8),
+            kong::Barrel::new(-3i32) * kong::Barrel::new(2i8)
+        );
+        assert_eq!(
+            kong::Barrel::new(-6i8),
+            kong::Barrel::new(-3i8) * kong::Barrel::new(2i32)
+        );
+    }
+
+    impl_op_ex!(
+        -
+        <T: ::std::ops::Sub<T> + Marker + Copy>
+        |a: &kong::Barrel<T>, b: &kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::Sub<T>>::Output> {
+            kong::Barrel::new(a.bananas - b.bananas)
+        }
+    );
+    #[test]
+    fn impl_op_ex() {
+        assert_eq!(
+            kong::Barrel::new(3u8),
+            kong::Barrel::new(5u8) - kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new(3u8),
+            kong::Barrel::new(5u8) - &kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new(3u8),
+            &kong::Barrel::new(5u8) - kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new(3u8),
+            &kong::Barrel::new(5u8) - &kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new(-7i8),
+            kong::Barrel::new(-5i8) - kong::Barrel::new(2i8)
+        );
+        assert_eq!(
+            kong::Barrel::new(-7i8),
+            kong::Barrel::new(-5i8) - &kong::Barrel::new(2i8)
+        );
+        assert_eq!(
+            kong::Barrel::new(-7i8),
+            &kong::Barrel::new(-5i8) - kong::Barrel::new(2i8)
+        );
+        assert_eq!(
+            kong::Barrel::new(-7i8),
+            &kong::Barrel::new(-5i8) - &kong::Barrel::new(2i8)
+        );
+    }
+
+    impl_op_ex_commutative!(
+        &
+        <T: ::std::ops::BitAnd<T> + Marker + Copy>
+        |a: &kong::Barrel<i32>, b: &kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::BitAnd<T>>::Output> {
+            kong::Barrel::new(T::from_i32(a.bananas) & b.bananas)
+        }
+    );
+    #[test]
+    fn impl_op_ex_commutative() {
+        // u8 as first operand
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as u8),
+            kong::Barrel::new(1u8) & kong::Barrel::new(2i32)
+        );
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as u8),
+            kong::Barrel::new(1u8) & &kong::Barrel::new(2i32)
+        );
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as u8),
+            &kong::Barrel::new(1u8) & kong::Barrel::new(2i32)
+        );
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as u8),
+            &kong::Barrel::new(1u8) & &kong::Barrel::new(2i32)
+        );
+
+        // u8 as second operand
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as u8),
+            kong::Barrel::new(1i32) & kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as u8),
+            kong::Barrel::new(1i32) & &kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as u8),
+            &kong::Barrel::new(1i32) & kong::Barrel::new(2u8)
+        );
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as u8),
+            &kong::Barrel::new(1i32) & &kong::Barrel::new(2u8)
+        );
+
+        // i8 as first operand
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as i8),
+            kong::Barrel::new(1i8) & kong::Barrel::new(2i32)
+        );
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as i8),
+            kong::Barrel::new(1i8) & &kong::Barrel::new(2i32)
+        );
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as i8),
+            &kong::Barrel::new(1i8) & kong::Barrel::new(2i32)
+        );
+        assert_eq!(
+            kong::Barrel::new((1 & 2) as i8),
+            &kong::Barrel::new(1i8) & &kong::Barrel::new(2i32)
+        );
+
+        // i8 as second operand
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as i8),
+            kong::Barrel::new(1i32) & kong::Barrel::new(2i8)
+        );
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as i8),
+            kong::Barrel::new(1i32) & &kong::Barrel::new(2i8)
+        );
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as i8),
+            &kong::Barrel::new(1i32) & kong::Barrel::new(2i8)
+        );
+        assert_eq!(
+            kong::Barrel::new((2 & 1) as i8),
+            &kong::Barrel::new(1i32) & &kong::Barrel::new(2i8)
+        );
+    }
+}
+
 mod multiline {
     use super::*;
 

@@ -16,33 +16,31 @@ macro_rules! _parse_binary_op {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_binary_op_internal {
-    ($ops_trait:ident, $ops_fn:ident, &$lhs:ty, &$rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
+    // NOTE: In order to prevent a newline in the generated output, it's important the close paren
+    // comes *right* after passing `$($generic_params)*` and not on the next line.
+    ($ops_trait:ident, $ops_fn:ident, &$lhs:ty, &$rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
         $crate::_impl_binary_op_borrowed_borrowed!(
-            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body
-        );
+            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body $($generic_params)*);
     };
-    ($ops_trait:ident, $ops_fn:ident, &$lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
+    ($ops_trait:ident, $ops_fn:ident, &$lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
         $crate::_impl_binary_op_borrowed_owned!(
-            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body
-        );
+            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body $($generic_params)*);
     };
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, &$rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, &$rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
         $crate::_impl_binary_op_owned_borrowed!(
-            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body
-        );
+            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body $($generic_params)*);
     };
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
         $crate::_impl_binary_op_owned_owned!(
-            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body
-        );
+            $ops_trait, $ops_fn, $lhs, $rhs, $out, $lhs_i, $rhs_i, $(#[$attrs])* $body $($generic_params)*);
     };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_binary_op_owned_owned {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
-        impl ::std::ops::$ops_trait<$rhs> for $lhs {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
+        impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for $lhs {
             type Output = $out;
 
             $(#[$attrs])*
@@ -57,8 +55,8 @@ macro_rules! _impl_binary_op_owned_owned {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_binary_op_owned_borrowed {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
-        impl ::std::ops::$ops_trait<&$rhs> for $lhs {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
+        impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for $lhs {
             type Output = $out;
 
             $(#[$attrs])*
@@ -73,8 +71,8 @@ macro_rules! _impl_binary_op_owned_borrowed {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_binary_op_borrowed_owned {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
-        impl ::std::ops::$ops_trait<$rhs> for &$lhs {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
+        impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for &$lhs {
             type Output = $out;
 
             $(#[$attrs])*
@@ -89,8 +87,8 @@ macro_rules! _impl_binary_op_borrowed_owned {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_binary_op_borrowed_borrowed {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
-        impl ::std::ops::$ops_trait<&$rhs> for &$lhs {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
+        impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for &$lhs {
             type Output = $out;
 
             $(#[$attrs])*

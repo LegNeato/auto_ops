@@ -16,8 +16,8 @@ macro_rules! _parse_assignment_op {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _impl_assignment_op_internal {
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, &$rhs:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
-        impl ::std::ops::$ops_trait<&$rhs> for $lhs {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, &$rhs:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
+        impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for $lhs {
             $(#[$attrs])*
             fn $ops_fn(&mut self, $rhs_i: &$rhs) {
                 let mut $lhs_i = self;
@@ -25,15 +25,15 @@ macro_rules! _impl_assignment_op_internal {
             }
         }
 
-        impl ::std::ops::$ops_trait<&$rhs> for &mut $lhs {
+        impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for &mut $lhs {
             fn $ops_fn(&mut self, $rhs_i: &$rhs) {
                 let mut $lhs_i = self;
                 $body
             }
         }
     };
-    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block) => {
-        impl ::std::ops::$ops_trait<$rhs> for $lhs {
+    ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
+        impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for $lhs {
             $(#[$attrs])*
             fn $ops_fn(&mut self, $rhs_i: $rhs) {
                 let mut $lhs_i = self;
@@ -41,7 +41,7 @@ macro_rules! _impl_assignment_op_internal {
             }
         }
 
-        impl ::std::ops::$ops_trait<$rhs> for &mut $lhs {
+        impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for &mut $lhs {
             fn $ops_fn(&mut self, $rhs_i: $rhs) {
                 let mut $lhs_i = self;
                 $body

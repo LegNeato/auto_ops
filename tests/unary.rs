@@ -114,6 +114,50 @@ mod generics {
     }
 }
 
+mod generic_params {
+    use super::*;
+
+    // Silly trait to convert between iXXX/uXXX (eg i8/u8)
+    trait OtherSignType {
+        type OtherT;
+        fn convert(&self) -> Self::OtherT;
+    }
+    // Using i8/u8 to avoid conflicting with above impls
+    impl OtherSignType for i8 {
+        type OtherT = u8;
+        fn convert(&self) -> Self::OtherT {
+            *self as Self::OtherT
+        }
+    }
+    impl OtherSignType for u8 {
+        type OtherT = i8;
+        fn convert(&self) -> Self::OtherT {
+            *self as Self::OtherT
+        }
+    }
+    impl_op!(!<Out: OtherSignType<OtherT=In>, In: OtherSignType<OtherT=Out>>|a: kong::Barrel<In>| -> kong::Barrel<Out> {
+        kong::Barrel::new(a.bananas.convert())
+    });
+    #[test]
+    fn impl_op() {
+        assert_eq!(kong::Barrel::new(1u8), !kong::Barrel::new(1i8));
+        assert_eq!(kong::Barrel::new(1i8), !!kong::Barrel::new(1i8));
+        assert_eq!(kong::Barrel::new(2i8), !kong::Barrel::new(2u8));
+        assert_eq!(kong::Barrel::new(2u8), !!kong::Barrel::new(2u8));
+    }
+
+    impl_op_ex!(-<Out: OtherSignType<OtherT=In>, In: OtherSignType<OtherT=Out>>|a: &kong::Barrel<In>| -> kong::Barrel<Out> {
+        kong::Barrel::new(a.bananas.convert())
+    });
+    #[test]
+    fn impl_op_ex() {
+        assert_eq!(kong::Barrel::new(1u8), -&kong::Barrel::new(1i8));
+        assert_eq!(kong::Barrel::new(2u8), -kong::Barrel::new(2i8));
+        assert_eq!(kong::Barrel::new(3i8), -&kong::Barrel::new(3u8));
+        assert_eq!(kong::Barrel::new(4i8), -kong::Barrel::new(4u8));
+    }
+}
+
 mod multiline {
     use super::*;
 

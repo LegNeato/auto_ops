@@ -230,6 +230,43 @@ mod generics {
     }
 }
 
+mod generic_params {
+    use super::*;
+
+    // Using i8/u8 to avoid conflicting with above impls
+    trait Marker {}
+    impl Marker for u8 {}
+    impl Marker for i8 {}
+
+    impl_op!(+= <T: ::std::ops::AddAssign<T> + Marker>|a: &mut kong::Barrel<T>, b: kong::Barrel<T>| { a.bananas += b.bananas; });
+    #[test]
+    fn impl_op() {
+        let mut barrel = kong::Barrel::new(3u8);
+        barrel += kong::Barrel::new(2u8);
+        assert_eq!(kong::Barrel::new(5u8), barrel);
+
+        let mut barrel = kong::Barrel::new(-3i8);
+        barrel += kong::Barrel::new(-2i8);
+        assert_eq!(kong::Barrel::new(-5i8), barrel);
+    }
+
+    impl_op_ex!(-= <T: ::std::ops::SubAssign<T> + Marker + Copy>|a: &mut kong::Barrel<T>, b: &kong::Barrel<T>| { a.bananas -= b.bananas; });
+    #[test]
+    fn impl_op_ex() {
+        let mut barrel = kong::Barrel::new(10u8);
+        barrel -= kong::Barrel::new(3u8);
+        assert_eq!(kong::Barrel::new(7u8), barrel);
+        barrel -= &kong::Barrel::new(2u8);
+        assert_eq!(kong::Barrel::new(5u8), barrel);
+
+        let mut barrel = kong::Barrel::new(-10i8);
+        barrel -= kong::Barrel::new(-3i8);
+        assert_eq!(kong::Barrel::new(-7i8), barrel);
+        barrel -= &kong::Barrel::new(-2i8);
+        assert_eq!(kong::Barrel::new(-5i8), barrel);
+    }
+}
+
 mod multiline {
     use super::*;
 

@@ -120,15 +120,44 @@
 //!     assert_eq!(DonkeyKong::new(3), -&dk);
 //! }
 //! ```
+//! ## Generics
+//! Any of the above forms can additionally be generic by putting generic params just before the lambda.
+//! ```
+//! // impl_op!(op $[attr] <generic_params> |a: LHS, b: RHS| -> OUT {...});
+//! // where
+//! // generic_params: anything that would go just after an `impl`, including lifetimes and
+//! //                 joining multiple bounds with `+`
+//!
+//! use auto_ops::impl_op;
+//!
+//! #[derive(Debug, PartialEq)]
+//! struct Barrel<T> {
+//!     pub bananas: T,
+//! }
+//!
+//! impl<T> Barrel<T> {
+//!     pub fn new(bananas: T) -> Self {
+//!         Barrel { bananas }
+//!     }
+//! }
+//!
+//! impl_op!(+ <T: ::std::ops::Add<T>> |a: Barrel<T>, b: Barrel<T>| -> Barrel<<T as ::std::ops::Add<T>>::Output> {
+//!     Barrel::new(a.bananas + b.bananas)
+//! });
+//!
+//! assert_eq!(Barrel::new(5u8), Barrel::new(2u8) + Barrel::new(3u8));
+//! assert_eq!(Barrel::new(1.2f32), Barrel::new(0.5f32) + Barrel::new(0.7f32));
+//! ```
 //! # Limitations
 //! * The output type of any operation must be an owned type (i.e. `impl_op!(+ |a: DonkeyKong b: i32| -> &DonkeyKong {...})` is invalid).
-//! * Types that have an unqualified lifetime or associated type are invalid.
 //! * Only some Rust patterns are supported in the closure (`_`, `mut x`, `x`). If you wish to use destructuring or other such patterns, wrap them in parens (`(DonkeyKong { bananas }): DonkeyKong`).
+//! * Cannot put `where` clauses on the `impl`, all generic constraints must be in the generic parameters themselves.
+//! * Bare generics cannot be used as the type for the first argument in the lambda.
 //!
 //! ```compile_fail
-//! // impl_op!(+ |a: SomeType<'a>, b: SomeType<'a>| -> SomeType<'a> {...}) // INVALID
-//! // impl_op!(+ |a: SomeType<T>, b: SomeType<T>| -> SomeType<T> {...})    // INVALID
-//! impl_op!(+ |a: SomeType<i32>, b: SomeType<i32>| -> SomeType<i32> {...}) // VALID
+//! // impl_op!(+ <T>|a: T, b: SomeType<T>| -> SomeType<T> {...}) // INVALID
+//! impl_op!(+ <T>|a: SomeType<T>, b: T| -> SomeType<T> {...})    // VALID
+//! impl_op!(+ |a: i32, b: SomeType<i32>| -> SomeType<i32> {...}) // VALID
 //! ```
 mod assignment;
 mod binary;
@@ -139,86 +168,98 @@ mod unary;
 /// See the [module level documentation](index.html) for more information.
 #[macro_export]
 macro_rules! impl_op {
+    // For some reason $(,)? doesn't work here
+    ($op:tt , $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_internal, $op $($args)*);
+    };
+    ($op:tt $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_internal, $op $($args)*);
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _impl_op_internal {
     // Assignment Ops
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : &$rhs:ty| $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : &$rhs:ty| $body:block $($generic_params:tt)*) => {
         $crate::_parse_assignment_op!($op, $lhs, &$rhs, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: &mut $lhs, mut $rhs_i: &$rhs| -> () { $body }(lhs, rhs);
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, mut $rhs_i:ident : $rhs:ty| $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, mut $rhs_i:ident : $rhs:ty| $body:block $($generic_params:tt)*) => {
         $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: &mut $lhs, mut $rhs_i: $rhs| -> () { $body }(lhs, rhs);
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : $rhs:ty| $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : $rhs:ty| $body:block $($generic_params:tt)*) => {
         $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: &mut $lhs, $rhs_i: $rhs| -> () { $body }(lhs, rhs);
-        });
+        } $($generic_params)*);
     };
 
     // Unary Ops
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_unary_op!($op, &$lhs, $out, lhs, $(#[$attrs])* {
             |$lhs_i: &$lhs| -> $out { $body }(lhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {
             |mut $lhs_i: $lhs| -> $out { $body }(lhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {
             |$lhs_i: $lhs| -> $out { $body }(lhs)
-        });
+        } $($generic_params)*);
     };
 
     // Binary Ops
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, &$lhs, &$rhs, $out, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: &$lhs, $rhs_i: &$rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, &$lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: &$lhs, mut $rhs_i: $rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, &$lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: &$lhs, $rhs_i: $rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, $lhs, &$rhs, $out, lhs, rhs, $(#[$attrs])* {
             |mut $lhs_i: $lhs, $rhs_i: &$rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, $lhs, &$rhs, $out, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: $lhs, $rhs_i: &$rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
 
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {
             |mut $lhs_i: $lhs, mut $rhs_i: $rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {
             |mut $lhs_i: $lhs, $rhs_i: $rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: $lhs, mut $rhs_i: $rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => {
         $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {
             |$lhs_i: $lhs, $rhs_i: $rhs| -> $out { $body }(lhs, rhs)
-        });
+        } $($generic_params)*);
     };
 }
 
@@ -272,65 +313,77 @@ macro_rules! impl_op {
 /// }
 #[macro_export]
 macro_rules! impl_op_ex {
+    // For some reason $(,)? doesn't work here
+    ($op:tt , $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_ex_internal, $op $($args)*);
+    };
+    ($op:tt $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_ex_internal, $op $($args)*);
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _impl_op_ex_internal {
     // Assignment Ops
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : &$rhs:ty| $body:block) => (
-        $crate::_parse_assignment_op!($op, $lhs, &$rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, $rhs_i : &$rhs| -> () {$body} (lhs, rhs);});
-        $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, $rhs_i : &$rhs| -> () {$body} (lhs, &rhs);});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : &$rhs:ty| $body:block $($generic_params:tt)*) => (
+        $crate::_parse_assignment_op!($op, $lhs, &$rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, $rhs_i : &$rhs| -> () {$body} (lhs, rhs);} $($generic_params)*);
+        $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, $rhs_i : &$rhs| -> () {$body} (lhs, &rhs);} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, mut $rhs_i:ident : $rhs:ty| $body:block) => (
-        $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, mut $rhs_i : $rhs| -> () {$body} (lhs, rhs);});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, mut $rhs_i:ident : $rhs:ty| $body:block $($generic_params:tt)*) => (
+        $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, mut $rhs_i : $rhs| -> () {$body} (lhs, rhs);} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : $rhs:ty| $body:block) => (
-        $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, $rhs_i : $rhs| -> () {$body} (lhs, rhs);});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &mut $lhs:ty, $rhs_i:tt : $rhs:ty| $body:block $($generic_params:tt)*) => (
+        $crate::_parse_assignment_op!($op, $lhs, $rhs, lhs, rhs, $(#[$attrs])* {|$lhs_i : &mut $lhs, $rhs_i : $rhs| -> () {$body} (lhs, rhs);} $($generic_params)*);
     );
 
     // Unary Ops
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty| -> $out:ty $body:block) => (
-        $crate::_parse_unary_op!($op, &$lhs, $out, lhs, $(#[$attrs])* {|$lhs_i : &$lhs| -> $out {$body} (lhs)});
-        $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {|$lhs_i : &$lhs| -> $out {$body} (&lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::_parse_unary_op!($op, &$lhs, $out, lhs, $(#[$attrs])* {|$lhs_i : &$lhs| -> $out {$body} (lhs)} $($generic_params)*);
+        $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {|$lhs_i : &$lhs| -> $out {$body} (&lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty|  -> $out:ty $body:block) => (
-        $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {|mut $lhs_i : $lhs| -> $out {$body} (lhs)});
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty|  -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {|mut $lhs_i : $lhs| -> $out {$body} (lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty|  -> $out:ty $body:block) => (
-        $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {|$lhs_i : $lhs| -> $out {$body} (lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty|  -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::_parse_unary_op!($op, $lhs, $out, lhs, $(#[$attrs])* {|$lhs_i : $lhs| -> $out {$body} (lhs)} $($generic_params)*);
     );
 
     // Binary Ops
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, &$lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (lhs, &rhs)});
-        $crate::_parse_binary_op!($op, $lhs, &$rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&lhs, rhs)});
-        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&lhs, &rhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, &$lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (lhs, &rhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $lhs, &$rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&lhs, rhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&lhs, &rhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (&lhs, rhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (&lhs, rhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (&lhs, rhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (&lhs, rhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (lhs, &rhs)});
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (lhs, &rhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (lhs, &rhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $lhs, $rhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (lhs, &rhs)} $($generic_params)*);
     );
 
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
 }
 
@@ -385,43 +438,55 @@ macro_rules! impl_op_ex {
 /// }
 #[macro_export]
 macro_rules! impl_op_commutative {
+    // For some reason $(,)? doesn't work here
+    ($op:tt , $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_commutative_internal, $op $($args)*);
+    };
+    ($op:tt $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_commutative_internal, $op $($args)*);
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _impl_op_commutative_internal {
     // Binary Ops Only
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, &$rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, &$rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
 
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : $rhs| -> $out $body);
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
     );
 }
 
@@ -505,49 +570,87 @@ macro_rules! impl_op_commutative {
 /// }
 #[macro_export]
 macro_rules! impl_op_ex_commutative {
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out $body);
+    // For some reason $(,)? doesn't work here
+    ($op:tt , $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_ex_commutative_internal, $op $($args)*);
+    };
+    ($op:tt $($args:tt)*) => {
+        $crate::_generic_params_shifter_internal!($crate::_impl_op_ex_commutative_internal, $op $($args)*);
+    };
+}
 
-        $crate::_parse_binary_op!($op, &$rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)});
-        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&rhs, lhs)});
-        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, &lhs)});
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&rhs, &lhs)});
-    );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out $body);
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _impl_op_ex_commutative_internal {
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
 
-        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (&rhs, lhs)});
+        $crate::_parse_binary_op!($op, &$rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&rhs, lhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, &lhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : &$rhs| -> $out {$body} (&rhs, &lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
 
-        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)});
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (&rhs, lhs)});
+        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, mut $rhs_i : $rhs| -> $out {$body} (&rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_ex!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : &$lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : &$lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
 
-        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)});
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, &lhs)});
+        $crate::_parse_binary_op!($op, $rhs, &$lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : &$lhs, $rhs_i : $rhs| -> $out {$body} (&rhs, lhs)} $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_ex!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
 
-        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)});
-        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, &lhs)});
+        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|mut $lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, &lhs)} $($generic_params)*);
+    );
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : &$rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_ex!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : &$rhs| -> $out $body $($generic_params)*);
+
+        $crate::_parse_binary_op!($op, &$rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, lhs)} $($generic_params)*);
+        $crate::_parse_binary_op!($op, $rhs, $lhs, $out, lhs, rhs, $(#[$attrs])* {|$lhs_i : $lhs, $rhs_i : &$rhs| -> $out {$body} (rhs, &lhs)} $($generic_params)*);
     );
 
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_commutative!($op $(#[$attrs])* |mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_commutative!($op $(#[$attrs])* |mut $lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_commutative!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |mut $lhs_i:ident : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_commutative!($op $(#[$attrs])* |mut $lhs_i : $lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_commutative!($op $(#[$attrs])* |$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, mut $rhs_i:ident : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_commutative!($op $(#[$attrs])* |$lhs_i : $lhs, mut $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
-    ($op:tt $(,)? $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block) => (
-        $crate::impl_op_commutative!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : $rhs| -> $out $body);
+    ($op:tt $(#[$attrs:meta])* |$lhs_i:tt : $lhs:ty, $rhs_i:tt : $rhs:ty| -> $out:ty $body:block $($generic_params:tt)*) => (
+        $crate::impl_op_commutative!($op $(#[$attrs])* |$lhs_i : $lhs, $rhs_i : $rhs| -> $out $body $($generic_params)*);
     );
+}
+
+/// This helper allows us to put the generic parameters in a place that's ergonomic (just before
+/// the lambda), but still be able to match things after them. The problem with matching things
+/// where they are is we *need* to use a `tt*` to capture the generic params in order to allow
+/// arbitrary params and constraints, but that will eat the rest of the input (there's no way to
+/// limit the kinds of tokens it will consume, and the macro matching engine prevents against
+/// arbitrarily long back-tracking). Therefore the `tt*` *must* be at the end of any rule that tries
+/// to actually match anything useful.
+///
+/// To accomplish this, we semantically match the tokens before the generic parameters, then use the
+/// tt muncher pattern to shift the tokens representing the generic params to the end of the token
+/// stream. We use the assumption that that `|` (a token that is just the pipe character) will never
+/// show up in generic parameters, and stop shifting as soon as we encounter it. We then invokes the
+/// `callback` macro with the shifted arguments.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _generic_params_shifter_internal {
+    // Once we've hit a `|`, use the final rule
+    ($callback:path, $op:tt $(#[$attrs:meta])* | $($tail:tt)*) => {
+        $callback!($op $(#[$attrs])* | $($tail)*);
+    };
+    // Until then, shift tokens describing the generic parameters to the end
+    ($callback:path, $op:tt $(#[$attrs:meta])* $next:tt $($tail:tt)*) => {
+        $crate::_generic_params_shifter_internal!($callback, $op $(#[$attrs])* $($tail)* $next);
+    };
 }
