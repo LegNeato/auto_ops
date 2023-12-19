@@ -532,8 +532,8 @@ mod generic_params {
 
     impl_op!(
         +
-        <T: ::std::ops::Add<T> + Marker>
-        |a: kong::Barrel<T>, b: kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::Add<T>>::Output> {
+        <T: ::core::ops::Add<T> + Marker>
+        |a: kong::Barrel<T>, b: kong::Barrel<T>| -> kong::Barrel<<T as ::core::ops::Add<T>>::Output> {
             kong::Barrel::new(a.bananas + b.bananas)
         }
     );
@@ -551,8 +551,8 @@ mod generic_params {
 
     impl_op_commutative!(
         *
-        <T: ::std::ops::Mul<T> + Marker>
-        |a: kong::Barrel<i32>, b: kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::Mul<T>>::Output> {
+        <T: ::core::ops::Mul<T> + Marker>
+        |a: kong::Barrel<i32>, b: kong::Barrel<T>| -> kong::Barrel<<T as ::core::ops::Mul<T>>::Output> {
             kong::Barrel::new(T::from_i32(a.bananas) * b.bananas)
         }
     );
@@ -578,8 +578,8 @@ mod generic_params {
 
     impl_op_ex!(
         -
-        <T: ::std::ops::Sub<T> + Marker + Copy>
-        |a: &kong::Barrel<T>, b: &kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::Sub<T>>::Output> {
+        <T: ::core::ops::Sub<T> + Marker + Copy>
+        |a: &kong::Barrel<T>, b: &kong::Barrel<T>| -> kong::Barrel<<T as ::core::ops::Sub<T>>::Output> {
             kong::Barrel::new(a.bananas - b.bananas)
         }
     );
@@ -621,8 +621,8 @@ mod generic_params {
 
     impl_op_ex_commutative!(
         &
-        <T: ::std::ops::BitAnd<T> + Marker + Copy>
-        |a: &kong::Barrel<i32>, b: &kong::Barrel<T>| -> kong::Barrel<<T as ::std::ops::BitAnd<T>>::Output> {
+        <T: ::core::ops::BitAnd<T> + Marker + Copy>
+        |a: &kong::Barrel<i32>, b: &kong::Barrel<T>| -> kong::Barrel<<T as ::core::ops::BitAnd<T>>::Output> {
             kong::Barrel::new(T::from_i32(a.bananas) & b.bananas)
         }
     );

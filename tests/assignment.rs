@@ -238,7 +238,7 @@ mod generic_params {
     impl Marker for u8 {}
     impl Marker for i8 {}
 
-    impl_op!(+= <T: ::std::ops::AddAssign<T> + Marker>|a: &mut kong::Barrel<T>, b: kong::Barrel<T>| { a.bananas += b.bananas; });
+    impl_op!(+= <T: ::core::ops::AddAssign<T> + Marker>|a: &mut kong::Barrel<T>, b: kong::Barrel<T>| { a.bananas += b.bananas; });
     #[test]
     fn impl_op() {
         let mut barrel = kong::Barrel::new(3u8);
@@ -250,7 +250,7 @@ mod generic_params {
         assert_eq!(kong::Barrel::new(-5i8), barrel);
     }
 
-    impl_op_ex!(-= <T: ::std::ops::SubAssign<T> + Marker + Copy>|a: &mut kong::Barrel<T>, b: &kong::Barrel<T>| { a.bananas -= b.bananas; });
+    impl_op_ex!(-= <T: ::core::ops::SubAssign<T> + Marker + Copy>|a: &mut kong::Barrel<T>, b: &kong::Barrel<T>| { a.bananas -= b.bananas; });
     #[test]
     fn impl_op_ex() {
         let mut barrel = kong::Barrel::new(10u8);

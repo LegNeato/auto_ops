@@ -55,7 +55,7 @@ fn parens() {
 
 #[test]
 fn generic_params() {
-    impl_op!(/<A: Copy + 'static, B: ::std::ops::Add<A>>|a: Bar<A, B>, b: Bar<A, B>| -> B::Output {
+    impl_op!(/<A: Copy + 'static, B: ::core::ops::Add<A>>|a: Bar<A, B>, b: Bar<A, B>| -> B::Output {
         b.1 + a.0
     });
 

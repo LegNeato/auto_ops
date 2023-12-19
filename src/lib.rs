@@ -141,7 +141,7 @@
 //!     }
 //! }
 //!
-//! impl_op!(+ <T: ::std::ops::Add<T>> |a: Barrel<T>, b: Barrel<T>| -> Barrel<<T as ::std::ops::Add<T>>::Output> {
+//! impl_op!(+ <T: ::core::ops::Add<T>> |a: Barrel<T>, b: Barrel<T>| -> Barrel<<T as ::core::ops::Add<T>>::Output> {
 //!     Barrel::new(a.bananas + b.bananas)
 //! });
 //!

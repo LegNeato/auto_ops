@@ -40,7 +40,7 @@ macro_rules! _impl_binary_op_internal {
 #[macro_export]
 macro_rules! _impl_binary_op_owned_owned {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
-        impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for $lhs {
+        impl$($generic_params)* ::core::ops::$ops_trait<$rhs> for $lhs {
             type Output = $out;
 
             $(#[$attrs])*
@@ -56,7 +56,7 @@ macro_rules! _impl_binary_op_owned_owned {
 #[macro_export]
 macro_rules! _impl_binary_op_owned_borrowed {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
-        impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for $lhs {
+        impl$($generic_params)* ::core::ops::$ops_trait<&$rhs> for $lhs {
             type Output = $out;
 
             $(#[$attrs])*
@@ -72,7 +72,7 @@ macro_rules! _impl_binary_op_owned_borrowed {
 #[macro_export]
 macro_rules! _impl_binary_op_borrowed_owned {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
-        impl$($generic_params)* ::std::ops::$ops_trait<$rhs> for &$lhs {
+        impl$($generic_params)* ::core::ops::$ops_trait<$rhs> for &$lhs {
             type Output = $out;
 
             $(#[$attrs])*
@@ -88,7 +88,7 @@ macro_rules! _impl_binary_op_borrowed_owned {
 #[macro_export]
 macro_rules! _impl_binary_op_borrowed_borrowed {
     ($ops_trait:ident, $ops_fn:ident, $lhs:ty, $rhs:ty, $out:ty, $lhs_i:ident, $rhs_i:ident, $(#[$attrs:meta])* $body:block $($generic_params:tt)*) => {
-        impl$($generic_params)* ::std::ops::$ops_trait<&$rhs> for &$lhs {
+        impl$($generic_params)* ::core::ops::$ops_trait<&$rhs> for &$lhs {
             type Output = $out;
 
             $(#[$attrs])*
